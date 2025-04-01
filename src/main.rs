@@ -38,21 +38,28 @@ fn main() {
     instrumeted_function(s);
     useful_target_variations();
     span_variations();
+    noisy_logs();
     others();
 }
 
 fn setup_tracing() {
     use tracing_subscriber::EnvFilter;
     use tracing_subscriber::fmt::Subscriber;
+    use tracing_subscriber::fmt;
 
     // default or take value from RUST_LOG
-    const DEFAULT_RUST_LOG: &str = "trace";
-    let default = DEFAULT_RUST_LOG.to_string().parse().unwrap_or_default();
-    let env_filter = EnvFilter::builder()
-        .with_default_directive(default)
-        .from_env_lossy();
+    const DEFAULT_RUST_LOG: &str = "trace,noisy=error";
+    let env_filter = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new(DEFAULT_RUST_LOG))
+        .unwrap_or_else(|err| {
+            eprintln!("Failed to parse RUST_LOG: {err}, defaulting to an empty EnvFilter");
+            EnvFilter::new("")
+        });
+
     Subscriber::builder()
         .with_env_filter(env_filter)
+        .with_timer(fmt::time::uptime())
+        .with_span_events(fmt::format::FmtSpan::CLOSE)
         .try_init()
         .expect("unable to setup tracing");
 }
@@ -96,6 +103,13 @@ fn span_variations() {
     tracing::info!("inside span");
 
     info!("custom, inside span");
+}
+
+fn noisy_logs() {
+    tracing::info!("noisy log 1");
+    tracing::info!("noisy log 2");
+    tracing::error!("noisy log err example");
+    tracing::info!("noisy log 3");
 }
 
 fn others() {

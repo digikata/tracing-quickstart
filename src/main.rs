@@ -35,7 +35,7 @@ fn main() {
 
     let s = "Earth".to_string();
     useful_parameter_variations(&s);
-    instrumeted_function(s);
+    instrumented_function(s);
     useful_target_variations();
     span_variations();
     noisy_logs();
@@ -64,8 +64,41 @@ fn setup_tracing() {
         .expect("unable to setup tracing");
 }
 
+pub fn setup_tracing_alt() {
+    use tracing_appender::non_blocking;
+    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::fmt;
+    use tracing_subscriber::Layer;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    // Create a file appender specifically for "my_span" logs
+    let my_span_file = std::fs::File::create("my_span.log")
+        .expect("Failed to create my_span.log");
+    let (my_span_writer, _guard) = non_blocking(my_span_file);
+
+    // Create a layer that only logs events from "my_span"
+    let my_span_layer = fmt::layer()
+        .with_writer(my_span_writer)
+        .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+            // Only include events where the span name is "my_span"
+            metadata.is_span() && metadata.name() == "my_span"
+        }));
+
+    // Create a stdout layer for all logs
+    let stdout_layer = fmt::layer()
+        .with_writer(std::io::stdout)
+        .with_filter(EnvFilter::from_default_env());
+
+    // Combine the layers and initialize the subscriber
+    tracing_subscriber::registry()
+        .with(my_span_layer)
+        .with(stdout_layer)
+        .init();
+}
+
 #[tracing::instrument]
-fn instrumeted_function(a: String) {
+fn instrumented_function(a: String) {
     tracing::info!("instrumeted_function called with {}", a);
     tracing::info!(%a, "instrumeted_function called");
     println!("Hello, {a} (instrumented)");
